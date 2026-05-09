@@ -1,1 +1,61 @@
 .env
+# Virtualenvs
+venv/
+.venv/
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg-info/
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints
+
+# IDEs
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Audio / model / large artifacts
+*.mp3
+*.wav
+*.m4a
+model*
+
+# Temp
+*.log
+tmp/
+temp/
+
+# Gradio client caches
+gradio-cache/
+
+# Secrets
+.env.*
+.env
+
+# macOS
+.Spotlight-V100
+.Trashes
