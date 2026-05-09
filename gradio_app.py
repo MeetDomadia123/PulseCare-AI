@@ -7,7 +7,6 @@ import time
 import tempfile
 import uuid
 from fpdf import FPDF
-import re
 from langdetect import detect, DetectorFactory
 DetectorFactory.seed = 0
 
@@ -128,36 +127,37 @@ but reply only in {target_lang_name}. Do not mix languages. No preamble.
 
 def _generate_pdf_from_history(history: list[tuple[str, str]]) -> str:
     """Create a simple PDF from the chat history and return the filepath."""
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    # Use landscape orientation for more width
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    pdf.set_font("Courier", size=10)
 
     pdf.cell(0, 8, txt="AI Doctor - Visit Report", ln=True, align="C")
-    pdf.ln(4)
+    pdf.ln(3)
 
-    def _safe_text(text: str) -> str:
-        # Insert spaces into extremely long tokens so FPDF can break lines
-        def _chunk_long(match):
-            s = match.group(0)
-            parts = [s[i:i+80] for i in range(0, len(s), 80)]
-            return " ".join(parts)
+    def sanitize_for_pdf(text: str) -> str:
+        """Replace problematic characters and limit line width."""
+        # Replace smart quotes and dashes
+        text = text.replace("'", "'").replace("'", "'")
+        text = text.replace(""", '"').replace(""", '"')
+        text = text.replace("–", "-").replace("—", "-")
+        text = text.replace("…", "...")
+        # Convert to ASCII, replacing unknowns
+        return text.encode('ascii', 'replace').decode('ascii')
 
-        # replace any sequence of non-space longer than 80 chars
-        return re.sub(r"\S{80,}", _chunk_long, text)
-
-    # maximum cell width = page width minus margins
-    cell_w = pdf.w - 2 * pdf.l_margin - 2
     for i, (user, assistant) in enumerate(history, start=1):
-        pdf.set_font("Arial", 'B', 11)
-        user_text = _safe_text(user)
-        user_text = user_text.encode('ascii', 'replace').decode('ascii')
-        pdf.multi_cell(cell_w, 6, text=f"Patient: {user_text}")
-        pdf.set_font("Arial", size=11)
-        assistant_text = _safe_text(assistant)
-        assistant_text = assistant_text.encode('ascii', 'replace').decode('ascii')
-        pdf.multi_cell(cell_w, 6, text=f"Doctor: {assistant_text}")
-        pdf.ln(2)
+        pdf.set_font("Courier", 'B', 9)
+        user_safe = sanitize_for_pdf(user)
+        # Split long lines to prevent wrapping issues
+        for line in user_safe.split('\n'):
+            pdf.cell(0, 5, txt=f"P: {line}", ln=True)
+        
+        pdf.set_font("Courier", '', 9)
+        assistant_safe = sanitize_for_pdf(assistant)
+        for line in assistant_safe.split('\n'):
+            pdf.cell(0, 5, txt=f"D: {line}", ln=True)
+        pdf.ln(1)
 
     tmpdir = tempfile.gettempdir()
     filename = f"visit_report_{uuid.uuid4().hex[:8]}.pdf"
