@@ -7,6 +7,7 @@ import time
 import tempfile
 import uuid
 from fpdf import FPDF
+import re
 from langdetect import detect, DetectorFactory
 DetectorFactory.seed = 0
 
@@ -135,11 +136,27 @@ def _generate_pdf_from_history(history: list[tuple[str, str]]) -> str:
     pdf.cell(0, 8, txt="AI Doctor - Visit Report", ln=True, align="C")
     pdf.ln(4)
 
+    def _safe_text(text: str) -> str:
+        # Insert spaces into extremely long tokens so FPDF can break lines
+        def _chunk_long(match):
+            s = match.group(0)
+            parts = [s[i:i+80] for i in range(0, len(s), 80)]
+            return " ".join(parts)
+
+        # replace any sequence of non-space longer than 80 chars
+        return re.sub(r"\S{80,}", _chunk_long, text)
+
+    # maximum cell width = page width minus margins
+    cell_w = pdf.w - 2 * pdf.l_margin - 2
     for i, (user, assistant) in enumerate(history, start=1):
         pdf.set_font("Arial", 'B', 11)
-        pdf.multi_cell(0, 6, txt=f"Patient: {user}")
+        user_text = _safe_text(user)
+        user_text = user_text.encode('ascii', 'replace').decode('ascii')
+        pdf.multi_cell(cell_w, 6, text=f"Patient: {user_text}")
         pdf.set_font("Arial", size=11)
-        pdf.multi_cell(0, 6, txt=f"Doctor: {assistant}")
+        assistant_text = _safe_text(assistant)
+        assistant_text = assistant_text.encode('ascii', 'replace').decode('ascii')
+        pdf.multi_cell(cell_w, 6, text=f"Doctor: {assistant_text}")
         pdf.ln(2)
 
     tmpdir = tempfile.gettempdir()
@@ -153,7 +170,8 @@ def download_pdf(history: list[tuple[str, str]]):
     """Gradio click handler to generate a PDF and return its filepath for download."""
     if not history:
         return None
-    return _generate_pdf_from_history(history)
+    out_path = _generate_pdf_from_history(history)
+    return gr.update(value=out_path, visible=True)
 
 
 def export_json(history: list[tuple[str, str]]):
@@ -167,7 +185,7 @@ def export_json(history: list[tuple[str, str]]):
     out_path = f"{tmpdir}/{filename}"
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
-    return out_path
+    return gr.update(value=out_path, visible=True)
 
 
 def process_turn_stream(audio_filepath, text_input, image_filepath, history, last_image, language_choice):
@@ -372,6 +390,8 @@ with gr.Blocks(title="AI Doctor – Voice & Vision", theme=nice_theme, css=CUSTO
     pdf_btn.click(fn=download_pdf, inputs=[history_state], outputs=[pdf_out])
     json_btn.click(fn=export_json, inputs=[history_state], outputs=[json_out])
 
-iface.launch(debug=True)
+if __name__ == "__main__":
+    iface.launch(debug=True, share=True)
 
-# iface.launch(server_name="0.0.0.0", server_port=7860, debug=True) // use this line to run on a remote server
+    # To run on a remote server bind to all interfaces and a port:
+    # iface.launch(server_name="0.0.0.0", server_port=7860, debug=True, share=True)
