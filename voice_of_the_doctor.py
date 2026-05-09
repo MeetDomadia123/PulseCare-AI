@@ -111,8 +111,6 @@
 # Step1a: Setup Text to Speech–TTS–model with gTTS
 import os
 from gtts import gTTS
-import subprocess
-import platform
 from elevenlabs import ElevenLabs
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVEN_API_KEY")
@@ -140,20 +138,8 @@ def _pick_voice(lang_code: str | None) -> str:
 def text_to_speech_with_gtts(input_text, output_filepath):
     audioobj = gTTS(text=input_text, lang="en", slow=False)
     audioobj.save(output_filepath)
-
-    os_name = platform.system()
-    try:
-        if os_name == "Darwin":  # macOS
-            subprocess.run(['afplay', output_filepath])
-        elif os_name == "Windows":
-            subprocess.run(['powershell', '-c',
-                f'(New-Object Media.SoundPlayer "{output_filepath}").PlaySync();'])
-        elif os_name == "Linux":
-            subprocess.run(['aplay', output_filepath])
-        else:
-            raise OSError("Unsupported operating system")
-    except Exception as e:
-        print("Audio playback error:", e)
+    # The audio file is saved for the browser/client to play. Do not autoplay server-side.
+    return output_filepath
 
 
 
@@ -173,21 +159,7 @@ def text_to_speech_with_elevenlabs(input_text, output_filepath, language="auto",
     with open(output_filepath, "wb") as f:
         for chunk in audio_stream:
             f.write(chunk)
-
-    os_name = platform.system()
-    try:
-        if os_name == "Darwin":
-            subprocess.run(['afplay', output_filepath])
-        elif os_name == "Windows":
-            subprocess.run(['powershell', '-c',
-                f'(New-Object Media.SoundPlayer "{output_filepath}").PlaySync();'])
-        elif os_name == "Linux":
-            subprocess.run(['aplay', output_filepath])
-        else:
-            raise OSError("Unsupported operating system")
-    except Exception as e:
-        print("Audio playback error:", e)
-
+    # Do not play audio on the server; return path for client-side playback.
     return output_filepath
 
 

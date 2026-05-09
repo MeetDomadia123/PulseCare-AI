@@ -56,12 +56,13 @@ stt_model="whisper-large-v3"
 
 def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
     client=Groq(api_key=GROQ_API_KEY)
-    
-    audio_file=open(audio_filepath, "rb")
-    transcription=client.audio.transcriptions.create(
-        model=stt_model,
-        file=audio_file,
-        language="en"
-    )
+
+    with open(audio_filepath, "rb") as audio_file:
+        transcription=client.audio.transcriptions.create(
+            model=stt_model,
+            file=audio_file,
+            prompt="Patient describing medical symptoms: pain, headache, wrist, chest, cough, rash, fever, nausea, injury, breathing",
+            temperature=0.0
+        )
     return transcription.text
 
