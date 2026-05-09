@@ -127,36 +127,54 @@ but reply only in {target_lang_name}. Do not mix languages. No preamble.
 
 def _generate_pdf_from_history(history: list[tuple[str, str]]) -> str:
     """Create a simple PDF from the chat history and return the filepath."""
-    # Use landscape orientation for more width
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
-    pdf.set_font("Courier", size=10)
 
+    pdf.set_font("Courier", 'B', 11)
     pdf.cell(0, 8, txt="AI Doctor - Visit Report", ln=True, align="C")
-    pdf.ln(3)
+    pdf.ln(2)
 
     def sanitize_for_pdf(text: str) -> str:
-        """Replace problematic characters and limit line width."""
-        # Replace smart quotes and dashes
+        """Replace problematic characters."""
         text = text.replace("'", "'").replace("'", "'")
         text = text.replace(""", '"').replace(""", '"')
         text = text.replace("–", "-").replace("—", "-")
         text = text.replace("…", "...")
-        # Convert to ASCII, replacing unknowns
         return text.encode('ascii', 'replace').decode('ascii')
+
+    def word_wrap(text: str, max_width: int) -> list[str]:
+        """Manually wrap text to fit within max character width."""
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            if len(' '.join(current_line + [word])) <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        return lines
 
     for i, (user, assistant) in enumerate(history, start=1):
         pdf.set_font("Courier", 'B', 9)
         user_safe = sanitize_for_pdf(user)
-        # Split long lines to prevent wrapping issues
-        for line in user_safe.split('\n'):
+        user_lines = word_wrap(user_safe, 90)
+        for line in user_lines:
             pdf.cell(0, 5, txt=f"P: {line}", ln=True)
         
         pdf.set_font("Courier", '', 9)
         assistant_safe = sanitize_for_pdf(assistant)
-        for line in assistant_safe.split('\n'):
+        assistant_lines = word_wrap(assistant_safe, 90)
+        for line in assistant_lines:
             pdf.cell(0, 5, txt=f"D: {line}", ln=True)
+        
         pdf.ln(1)
 
     tmpdir = tempfile.gettempdir()
